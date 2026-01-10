@@ -32,6 +32,8 @@ function getRoom(roomId) {
 }
 
 io.on("connection", (socket) => {
+	socket.on("ping", () => socket.emit("pong"));
+
 	socket.on("room:join", ({ roomId, name }) => {
 		if (!roomId) {
 			socket.emit("room:error", { message: "Missing roomId" });
