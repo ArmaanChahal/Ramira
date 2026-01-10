@@ -403,6 +403,19 @@ export default function WatchParty() {
 	}, [remoteAudioStream]);
 
 	useEffect(() => {
+		if (!joined) return;
+
+		const socket = socketRef.current;
+		if (!socket) return;
+
+		const id = setInterval(() => {
+			if (socket.connected) socket.emit("ping");
+		}, 25000);
+
+		return () => clearInterval(id);
+	}, [joined]);
+
+	useEffect(() => {
 		return () => leaveRoom();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
