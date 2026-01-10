@@ -224,6 +224,9 @@ export default function WatchParty() {
 		socket.on("peer:joined", async ({ peerId, peerName }) => {
 			peerIdRef.current = peerId;
 
+			sendExistingTrackSources(peerId);
+
+
 			setParticipants([
 				{ id: "local", name: "You", isLocal: true },
 				{ id: "peer", name: peerName || "Ramira", isLocal: false },
