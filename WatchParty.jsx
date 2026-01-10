@@ -84,8 +84,11 @@ export default function WatchParty() {
 				attachTrackToProperStream(track, source);
 				pendingTracksRef.current.delete(track.id);
 			} else {
-				// fallback: if no metadata arrives, treat video as camera
-				if (track.kind === "audio") {
+				// fallback: if no metadata arrives, treat video/audio as camera
+				if (track.kind === "video") {
+					attachTrackToProperStream(track, "camera");
+					pendingTracksRef.current.delete(track.id);
+				} else if (track.kind === "audio") {
 					attachTrackToProperStream(track, "camera");
 					pendingTracksRef.current.delete(track.id);
 				}
@@ -167,6 +170,26 @@ export default function WatchParty() {
 			});
 		}
 	};
+
+		const sendExistingTrackSources = (peerId) => {
+		const pc = pcRef.current;
+		const socket = socketRef.current;
+		if (!pc || !socket || !peerId) return;
+
+		for (const sender of pc.getSenders()) {
+			const track = sender.track;
+			if (!track) continue;
+
+			const source = screenStream?.getTracks().some((t) => t.id === track.id) ? "screen" : "camera";
+
+			socket.emit("signal", {
+				to: peerId,
+				type: "trackSource",
+				data: { trackId: track.id, source },
+			});
+		}
+	};
+
 
 	const connectSocket = () => {
 		if (socketRef.current) return;
