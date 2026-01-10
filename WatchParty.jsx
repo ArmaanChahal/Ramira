@@ -29,6 +29,8 @@ export default function WatchParty() {
 	const [isVideoOn, setIsVideoOn] = useState(true);
 	const [isAudioOn, setIsAudioOn] = useState(true);
 	const [isScreenSharing, setIsScreenSharing] = useState(false);
+	const [movieVolume, setMovieVolume] = useState(1);
+	const [voiceVolume, setVoiceVolume] = useState(1);
 
 	const [copied, setCopied] = useState(false);
 	const [participants, setParticipants] = useState([{ id: "local", name: "You", isLocal: true }]);
@@ -46,6 +48,14 @@ export default function WatchParty() {
 	const remoteVideoRef = useRef(null);
 	const mainVideoRef = useRef(null);
 	const remoteAudioRef = useRef(null);
+	
+	useEffect(() => {
+		if (remoteAudioRef.current) remoteAudioRef.current.volume = voiceVolume;
+	}, [voiceVolume, remoteAudioStream]);
+
+	useEffect(() => {
+		if (mainVideoRef.current) mainVideoRef.current.volume = movieVolume;
+	}, [movieVolume, isScreenSharing, screenStream, remoteScreenStream]);
 
 	const startCamera = async () => {
 		const stream = await navigator.mediaDevices.getUserMedia({
