@@ -449,6 +449,7 @@ export default function WatchParty() {
 
 		localStream?.getTracks().forEach((t) => t.stop());
 		screenStream?.getTracks().forEach((t) => t.stop());
+		screenStreamRef.current = null;
 
 		setLocalStream(null);
 		setScreenStream(null);
