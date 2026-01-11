@@ -91,6 +91,7 @@ export default function WatchParty() {
 			audio: true,
 		});
 		setLocalStream(stream);
+		localStreamRef.current = stream;
 		if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 		return stream;
 	};
@@ -117,9 +118,8 @@ export default function WatchParty() {
 			const streamId = stream?.id;
 		
 			const source = streamId ? streamSourceRef.current.get(streamId) : null;
-		
-			// If we don't know if this *video* is screen or camera yet, hold it briefly
-			if (!source && streamId && track.kind === "video") {
+			// If we don't know if this STREAM is screen or camera yet, hold tracks briefly
+			if (!source && streamId) {
 				const set = pendingByStreamIdRef.current.get(streamId) || new Set();
 				set.add(track);
 				pendingByStreamIdRef.current.set(streamId, set);
@@ -319,13 +319,18 @@ export default function WatchParty() {
 			peerIdRef.current = from;
 			const pc = ensurePC();
 
-			if (type === "trackSource") {
-				trackSourceRef.current.set(data.trackId, data.source);
+			if (type === "streamSource") {
+				// data: { streamId, source: "screen" | "camera" }
+				if (data?.streamId && data?.source) {
+					streamSourceRef.current.set(data.streamId, data.source);
 
-				const pending = pendingTracksRef.current.get(data.trackId);
-				if (pending) {
-					attachTrackToProperStream(pending, data.source);
-					pendingTracksRef.current.delete(data.trackId);
+					const pending = pendingByStreamIdRef.current.get(data.streamId);
+					if (pending) {
+						for (const t of pending) {
+							attachTrackToProperStream(t, data.source);
+						}
+						pendingByStreamIdRef.current.delete(data.streamId);
+					}
 				}
 				return;
 			}
@@ -341,7 +346,7 @@ export default function WatchParty() {
 				await pc.setRemoteDescription(data);
 
 				// Ensure we have local camera before answering
-				const cam = localStream || (await startCamera());
+				const cam = localStreamRef.current || (await startCamera());
 				addLocalTracks(pc, cam, "camera");
 
 				const answer = await pc.createAnswer();
@@ -399,6 +404,7 @@ export default function WatchParty() {
 			});
 
 			setScreenStream(stream);
+			screenStreamRef.current = stream;
 			setIsScreenSharing(true);
 
 			const pc = ensurePC();
@@ -416,23 +422,27 @@ export default function WatchParty() {
 	};
 
 	const stopScreenShare = async () => {
-		if (!screenStream) return;
+		const stream = screenStreamRef.current;
+		if (!stream) return;
 
 		const pc = pcRef.current;
 		if (pc) {
 			for (const sender of pc.getSenders()) {
-				if (sender.track && screenStream.getTracks().some((t) => t.id === sender.track.id)) {
+				if (sender.track && stream.getTracks().some((t) => t.id === sender.track.id)) {
 					pc.removeTrack(sender);
 				}
 			}
 		}
 
-		screenStream.getTracks().forEach((t) => t.stop());
+		stream.getTracks().forEach((t) => t.stop());
+		screenStreamRef.current = null;
+
 		setScreenStream(null);
 		setIsScreenSharing(false);
 
 		await renegotiate();
 	};
+
 
 	const toggleVideo = () => {
 		if (!localStream) return;
