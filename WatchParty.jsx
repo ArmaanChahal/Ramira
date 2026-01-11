@@ -48,6 +48,22 @@ export default function WatchParty() {
 	const remoteVideoRef = useRef(null);
 	const mainVideoRef = useRef(null);
 	const remoteAudioRef = useRef(null);
+
+	const popOutRamira = async () => {
+		if (!remoteVideoRef.current) return;
+	
+		try {
+			// Toggle PiP
+			if (document.pictureInPictureElement) {
+				await document.exitPictureInPicture();
+			} else {
+				await remoteVideoRef.current.requestPictureInPicture();
+			}
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
 	
 	useEffect(() => {
 		if (remoteAudioRef.current) remoteAudioRef.current.volume = voiceVolume;
