@@ -557,6 +557,13 @@ export default function WatchParty() {
 						<span className="text-slate-400 text-sm font-mono">{roomId}</span>
 						{copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-slate-500" />}
 					</button>
+					<button
+						onClick={popOutRamira}
+						disabled={!remoteCamStream}
+						className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+					>
+						<span className="text-slate-400 text-sm">PiP</span>
+					</button>
 				</div>
 				<div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg">
 					<Users className="w-4 h-4 text-purple-400" />
