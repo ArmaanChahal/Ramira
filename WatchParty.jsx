@@ -41,13 +41,25 @@ export default function WatchParty() {
 	const peerIdRef = useRef(null);
 
 	// Track source mapping so we can route screen vs camera on the receiver
-	const trackSourceRef = useRef(new Map()); // trackId -> "screen" | "camera"
-	const pendingTracksRef = useRef(new Map()); // trackId -> MediaStreamTrack
+	const streamSourceRef = useRef(new Map()); // streamId -> "screen" | "camera"
+	const pendingByStreamIdRef = useRef(new Map()); // streamId -> Set<MediaStreamTrack>
 
 	const localVideoRef = useRef(null);
 	const remoteVideoRef = useRef(null);
 	const mainVideoRef = useRef(null);
 	const remoteAudioRef = useRef(null);
+
+	const localStreamRef = useRef(null);
+	const screenStreamRef = useRef(null);
+	
+	useEffect(() => {
+		localStreamRef.current = localStream;
+	}, [localStream]);
+	
+	useEffect(() => {
+		screenStreamRef.current = screenStream;
+	}, [screenStream]);
+
 
 	const popOutRamira = async () => {
 		if (!remoteVideoRef.current) return;
@@ -101,32 +113,29 @@ export default function WatchParty() {
 
 		pc.ontrack = (e) => {
 			const track = e.track;
-
-			// Cache track until we know its source (screen/camera)
-			pendingTracksRef.current.set(track.id, track);
-
-			const source = trackSourceRef.current.get(track.id);
-			if (source) {
-				attachTrackToProperStream(track, source);
-				pendingTracksRef.current.delete(track.id);
-			} else {
-				// fallback: if no metadata arrives, treat video/audio as camera
-				if (track.kind === "video") {
-					attachTrackToProperStream(track, "camera");
-					pendingTracksRef.current.delete(track.id);
-				} else if (track.kind === "audio") {
-					attachTrackToProperStream(track, "camera");
-					pendingTracksRef.current.delete(track.id);
-				}
+			const stream = e.streams?.[0];
+			const streamId = stream?.id;
+		
+			const source = streamId ? streamSourceRef.current.get(streamId) : null;
+		
+			// If we don't know if this *video* is screen or camera yet, hold it briefly
+			if (!source && streamId && track.kind === "video") {
+				const set = pendingByStreamIdRef.current.get(streamId) || new Set();
+				set.add(track);
+				pendingByStreamIdRef.current.set(streamId, set);
+				return;
 			}
-
+		
+			const finalSource = source || "camera";
+			attachTrackToProperStream(track, finalSource);
+		
 			track.onended = () => {
-				const s = trackSourceRef.current.get(track.id);
-				if (s === "screen") {
+				if (finalSource === "screen") {
 					setRemoteScreenStream(null);
 				}
 			};
 		};
+
 
 		pcRef.current = pc;
 		return pc;
@@ -134,18 +143,23 @@ export default function WatchParty() {
 
 	const addLocalTracks = (pc, stream, source) => {
 		for (const track of stream.getTracks()) {
+			// prevent duplicates (your code was adding the same cam tracks more than once)
+			const already = pc.getSenders().some((s) => s.track && s.track.id === track.id);
+			if (already) continue;
+	
 			pc.addTrack(track, stream);
-
-			// Tell peer what this track represents
-			if (peerIdRef.current) {
-				socketRef.current?.emit("signal", {
-					to: peerIdRef.current,
-					type: "trackSource",
-					data: { trackId: track.id, source },
-				});
-			}
+		}
+	
+		// Tell peer what this STREAM represents (screen/camera)
+		if (peerIdRef.current) {
+			socketRef.current?.emit("signal", {
+				to: peerIdRef.current,
+				type: "streamSource",
+				data: { streamId: stream.id, source },
+			});
 		}
 	};
+
 
 	const renegotiate = async () => {
 		// Only host creates offers (avoids "offer glare")
@@ -215,6 +229,27 @@ export default function WatchParty() {
 			});
 		}
 	};
+		const sendExistingStreamSources = (peerId) => {
+		const socket = socketRef.current;
+		if (!socket || !peerId) return;
+	
+		if (localStreamRef.current) {
+			socket.emit("signal", {
+				to: peerId,
+				type: "streamSource",
+				data: { streamId: localStreamRef.current.id, source: "camera" },
+			});
+		}
+	
+		if (screenStreamRef.current) {
+			socket.emit("signal", {
+				to: peerId,
+				type: "streamSource",
+				data: { streamId: screenStreamRef.current.id, source: "screen" },
+			});
+		}
+	};
+
 
 
 	const connectSocket = () => {
@@ -235,7 +270,7 @@ export default function WatchParty() {
 				...(peerId ? [{ id: "peer", name: peerName || "Ramira", isLocal: false }] : []),
 			]);
 
-			const cam = localStream || (await startCamera());
+			const cam = localStreamRef.current || (await startCamera());
 			const pc = ensurePC();
 
 			// add camera/mic tracks as "camera"
@@ -250,8 +285,7 @@ export default function WatchParty() {
 		socket.on("peer:joined", async ({ peerId, peerName }) => {
 			peerIdRef.current = peerId;
 
-			sendExistingTrackSources(peerId);
-
+		    sendExistingStreamSources(peerId);
 
 			setParticipants([
 				{ id: "local", name: "You", isLocal: true },
