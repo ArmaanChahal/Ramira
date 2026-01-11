@@ -614,6 +614,7 @@ export default function WatchParty() {
 
 			<footer className="px-6 py-4 border-t border-white/5 bg-slate-900/50 backdrop-blur-sm">
 				<div className="flex items-center justify-center gap-3">
+					
 					<button
 						onClick={toggleAudio}
 						className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
@@ -643,6 +644,33 @@ export default function WatchParty() {
 					</button>
 
 					<div className="w-px h-10 bg-white/10 mx-2" />
+					<div className="px-4 h-14 rounded-2xl bg-white/5 flex items-center gap-4">
+						<div className="flex items-center gap-2">
+							<span className="text-slate-300 text-xs">Movie</span>
+							<input
+								type="range"
+								min="0"
+								max="1"
+								step="0.01"
+								value={movieVolume}
+								onChange={(e) => setMovieVolume(Number(e.target.value))}
+								className="w-24"
+							/>
+						</div>
+						<div className="w-px h-8 bg-white/10" />
+						<div className="flex items-center gap-2">
+							<span className="text-slate-300 text-xs">Voice</span>
+							<input
+								type="range"
+								min="0"
+								max="1"
+								step="0.01"
+								value={voiceVolume}
+								onChange={(e) => setVoiceVolume(Number(e.target.value))}
+								className="w-24"
+							/>
+						</div>
+					</div>
 
 					<button
 						onClick={leaveRoom}
